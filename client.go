@@ -68,6 +68,10 @@ func NewBasicAuth(u, p string) *Client {
 	return injectClient(a)
 }
 
+func NewOAuth2Token(token oauth2.Token) *Client {
+	return injectClient(&auth{token: token})
+}
+
 // NewEnvVarAuth creates a client using the environment
 // variables BITBUCKET_USERNAME and BITBUCKET_PASSWORD
 func NewEnvVarAuth() *Client {
