@@ -87,7 +87,7 @@ func (r *Repository) ListForks(ro *RepositoryOptions) (interface{}, error) {
 // GetFile retrieves the content of the file with give node (commit hash)
 func (r *Repository) GetFile(ro *RepositoryOptions, node, path string) (interface{}, error) {
 	urlStr := r.c.requestUrl("/repositories/%s/%s/src/%s/%s", ro.Owner, ro.Repo_slug, node, path)
-	return r.c.execute("GET", urlStr, "")
+	return r.c.executeRaw("GET", urlStr, "")
 }
 
 // ListDefaultReviewers returns the list of default reviewers for the given repo

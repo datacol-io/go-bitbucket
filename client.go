@@ -3,10 +3,10 @@ package bitbucket
 import (
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 
-	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -102,6 +102,10 @@ func injectClient(a *auth) *Client {
 	return c
 }
 
+func (c *Client) executeRaw(method string, urlStr string, text string) ([]byte, error) {
+	return doRun(c.Auth, method, urlStr, text)
+}
+
 func (c *Client) execute(method string, urlStr string, text string) (interface{}, error) {
 	// Use pagination if changed from default value
 	const DEC_RADIX = 10
@@ -118,47 +122,7 @@ func (c *Client) execute(method string, urlStr string, text string) (interface{}
 		}
 	}
 
-	body := strings.NewReader(text)
-	req, err := http.NewRequest(method, urlStr, body)
-	if text != "" {
-		req.Header.Set("Content-Type", "application/json")
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if c.Auth.user != "" && c.Auth.password != "" {
-		req.SetBasicAuth(c.Auth.user, c.Auth.password)
-	} else if c.Auth.token.Valid() {
-		c.Auth.token.SetAuthHeader(req)
-	}
-
-	client := new(http.Client)
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	if resp.StatusCode == http.StatusNoContent {
-		return nil, nil
-	}
-
-	if (resp.StatusCode != http.StatusOK) && (resp.StatusCode != http.StatusCreated) {
-		return nil, fmt.Errorf(resp.Status)
-	}
-
-	if resp.Body == nil {
-		return nil, fmt.Errorf("response body is nil")
-	}
-
-	resBodyBytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
+	resBodyBytes, err := doRun(c.Auth, method, urlStr, text)
 
 	var result interface{}
 	err = json.Unmarshal(resBodyBytes, &result)
@@ -211,4 +175,50 @@ func (c *Client) requestUrl(template string, args ...interface{}) string {
 		return GetApiBaseURL() + template
 	}
 	return GetApiBaseURL() + fmt.Sprintf(template, args...)
+}
+
+func doRun(ca *auth, method string, urlStr string, text string) ([]byte, error) {
+	body := strings.NewReader(text)
+	req, err := http.NewRequest(method, urlStr, body)
+	if text != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	if ca.user != "" && ca.password != "" {
+		req.SetBasicAuth(ca.user, ca.password)
+	} else if ca.token.Valid() {
+		ca.token.SetAuthHeader(req)
+	}
+
+	client := new(http.Client)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	if resp.StatusCode == http.StatusNoContent {
+		return nil, nil
+	}
+
+	if (resp.StatusCode != http.StatusOK) && (resp.StatusCode != http.StatusCreated) {
+		return nil, fmt.Errorf(resp.Status)
+	}
+
+	if resp.Body == nil {
+		return nil, fmt.Errorf("response body is nil")
+	}
+
+	resBodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	return resBodyBytes, nil
 }
